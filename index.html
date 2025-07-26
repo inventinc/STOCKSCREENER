@@ -1,0 +1,404 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Screener</title>
+    <script>
+      // Global Error Handler - should be the very first script
+      window.onerror = function(message, source, lineno, colno, error) {
+        console.error("[Global Error Handler] Uncaught Error:", {
+          message: message,
+          source: source,
+          lineno: lineno,
+          colno: colno,
+          errorObject: error
+        });
+        
+        let errorDisplay = document.getElementById('critical-error-display-banner');
+        const body = document.body || document.getElementsByTagName('body')[0];
+
+        if (!errorDisplay) {
+            errorDisplay = document.createElement('div');
+            errorDisplay.id = 'critical-error-display-banner';
+            errorDisplay.style.position = 'fixed';
+            errorDisplay.style.top = '0';
+            errorDisplay.style.left = '0';
+            errorDisplay.style.width = '100%';
+            errorDisplay.style.backgroundColor = 'red';
+            errorDisplay.style.color = 'white';
+            errorDisplay.style.padding = '10px';
+            errorDisplay.style.zIndex = '999999';
+            errorDisplay.style.fontFamily = 'monospace';
+            errorDisplay.style.fontSize = '12px';
+            errorDisplay.style.borderBottom = '2px solid darkred';
+            if (body) {
+                body.insertBefore(errorDisplay, body.firstChild);
+            } else if (document.documentElement) {
+                // Fallback if body is not yet available
+                document.documentElement.appendChild(errorDisplay);
+            }
+        }
+        // Ensure errorDisplay exists before setting innerHTML
+        if (errorDisplay) {
+            errorDisplay.innerHTML = `<b>CRITICAL UNCAUGHT ERROR:</b><br/>Message: ${message}<br/>Source: ${source || 'N/A'}<br/>Line: ${lineno}, Col: ${colno}`;
+        }
+        
+        return false; // Return false to allow default browser error handling as well
+      };
+
+      window.addEventListener('unhandledrejection', function(event) {
+        console.error('[Global Promise Rejection] Unhandled Rejection:', event.reason);
+        let errorDisplay = document.getElementById('critical-error-display-banner');
+        const body = document.body || document.getElementsByTagName('body')[0];
+
+         if (!errorDisplay) {
+            errorDisplay = document.createElement('div');
+            errorDisplay.id = 'critical-error-display-banner';
+            errorDisplay.style.position = 'fixed';
+            errorDisplay.style.top = '0';
+            errorDisplay.style.left = '0';
+            errorDisplay.style.width = '100%';
+            // Styles for unhandled rejection are set here
+            errorDisplay.style.backgroundColor = 'orange'; 
+            errorDisplay.style.color = 'black';
+            errorDisplay.style.padding = '10px';
+            errorDisplay.style.zIndex = '999999';
+            errorDisplay.style.fontFamily = 'monospace';
+            errorDisplay.style.fontSize = '12px';
+            errorDisplay.style.borderBottom = '2px solid darkorange';
+            if (body) {
+                body.insertBefore(errorDisplay, body.firstChild);
+            } else if (document.documentElement) {
+                // Fallback if body is not yet available
+                document.documentElement.appendChild(errorDisplay);
+            }
+        } else {
+            // If banner exists from a previous error, update its style for rejection
+            errorDisplay.style.backgroundColor = 'orange';
+            errorDisplay.style.color = 'black';
+            errorDisplay.style.borderBottom = '2px solid darkorange';
+        }
+
+        let reasonMessage = 'Unknown reason';
+        if (event.reason instanceof Error) {
+            reasonMessage = `Message: ${event.reason.message} (Stack: ${event.reason.stack || 'N/A'})`;
+        } else if (typeof event.reason === 'string') {
+            reasonMessage = event.reason;
+        } else {
+            try {
+                reasonMessage = JSON.stringify(event.reason);
+            } catch (e) {
+                reasonMessage = String(event.reason); // Fallback if stringify fails
+            }
+        }
+        // Ensure errorDisplay exists before setting innerHTML
+        if (errorDisplay) {
+            errorDisplay.innerHTML = `<b>UNHANDLED PROMISE REJECTION:</b><br/>${reasonMessage}`;
+        }
+      });
+      console.log('[index.html] Global error handlers registered.');
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        html { height: 100%; overflow-x: hidden; }
+        body { height: 100vh; margin: 0; font-family: 'Inter', sans-serif; display: flex; flex-direction: column; background-color: #f4f7f6; color: #1a202c; transition: background-color 0.3s ease, color 0.3s ease; overflow-x: hidden; }
+        body.overflow-hidden-body { overflow-y: hidden; }
+
+        #globalHeader { background-color: #ffffff; border-bottom: 1px solid #e5e7eb; }
+        #globalHeader h1 { color: #1f2937; }
+        #globalHeader #darkModeToggleBtn svg { color: #4b5563; }
+        #globalHeader #darkModeToggleBtn:hover svg { color: #1f2937; }
+        #globalHeader button:hover { background-color: #e5e7eb; } /* Generic hover for header buttons */
+
+
+        .sidebar { background-color: #ffffff; }
+        .sidebar:not(.sidebar-mobile-open) { box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06); border-right: 1px solid #e5e7eb; }
+        .sidebar .sidebar-internal-header { border-bottom-color: #e5e7eb; }
+        .sidebar .sidebar-internal-header h3 { color: #1f2937; }
+        .sidebar .text-blue-600 { color: #2563eb; }
+        .sidebar .text-blue-600:hover { color: #1d4ed8; }
+        .sidebar svg.accordion-arrow { color: #6b7280; }
+        .sidebar .filter-group-bg { background-color: #f9fafb; }
+        .sidebar .filter-group-bg h4 { color: #1f2937; }
+        .sidebar .filter-group-bg label { color: #374151; }
+        .sidebar .filter-group-bg .cursor-help { color: #9ca3af; }
+
+        .main-content-section { background-color: #ffffff; }
+        .main-content-section h3 { color: #374151; }
+        .main-content-section .text-blue-600 { color: #2563eb; }
+        .main-content-section .text-blue-600:hover { color: #1d4ed8; }
+
+        .metric-box { background-color: #f3f4f6; }
+        .metric-box p.font-bold { color: #111827; }
+        .metric-box p.text-sm { color: #4b5563; }
+
+        input, input::placeholder { background-color: #ffffff; border-color: #d1d5db; color: #111827; }
+        input::placeholder { color: #9ca3af; }
+        input:focus { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25); }
+
+        .stock-card { background-color: #ffffff; }
+        .stock-card .text-gray-900 { color: #111827; }
+        .stock-card .text-gray-600 { color: #4b5563; }
+        .stock-card .text-sm.text-gray-500 { color: #6b7280; }
+        .stock-card .text-gray-500 { color: #6b7280; }
+        .stock-card .font-medium.text-gray-800 { color: #1f2937; }
+
+        .stock-table th { background-color: #f9fafb; color: #374151; border-bottom-color: #e5e7eb; }
+        .stock-table th.cursor-pointer:hover { background-color: #eff6ff; } /* Light blue hover for sortable headers */
+        html.dark .stock-table th.cursor-pointer:hover { background-color: #2b394f; } /* Darker blue hover */
+        .stock-table tbody tr { background-color: #ffffff; border-bottom-color: #e5e7eb; }
+        .stock-table tbody tr:hover { background-color: #f3f4f6; }
+        .stock-table tbody td { color: #374151; }
+        .stock-table tbody td.font-semibold { color: #111827; }
+
+        .modal-content-bg { background-color: #fefefe; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .modal-content-bg h3, .modal-content-bg h4 { color: #1f2937; }
+        .modal-content-bg p, .modal-content-bg label, .modal-content-bg span.text-sm { color: #374151; }
+        .modal-content-bg span.font-medium { color: #1f2937; }
+        .modal-content-bg .text-gray-500 { color: #6b7280; }
+        .modal-content-bg .bg-gray-100 { background-color: #f3f4f6; } /* Used for chart placeholder */
+        .modal-content-bg canvas { max-width: 100%; } /* Chart.js responsiveness */
+        .modal-content-bg .text-blue-600 { color: #2563eb; }
+        .modal-content-bg .text-blue-600:hover { color: #1d4ed8; }
+        .modal-content-bg .bg-gray-200 { background-color: #e5e7eb; }
+        .modal-content-bg .bg-gray-200:hover { background-color: #d1d5db; }
+
+        .loading-indicator p { color: #4b5563; }
+        .mobile-filter-button { background-color: #3b82f6; color: white; padding: 0.5rem 0.75rem; border-radius: 0.375rem; font-size: 0.875rem; line-height: 1.25rem; display: inline-flex; align-items: center;}
+        .mobile-filter-button:hover { background-color: #2563eb; }
+        .mobile-sidebar-close-btn { color: #4b5563; }
+        .mobile-sidebar-close-btn:hover { color: #1f2937; }
+
+        /* Dark mode styles */
+        html.dark { background-color: #111827; }
+        html.dark body { background-color: #111827; color: #d1d5db; }
+        html.dark #globalHeader { background-color: #1f2937; border-bottom-color: #374151; }
+        html.dark #globalHeader h1 { color: #f3f4f6; }
+        html.dark #globalHeader #darkModeToggleBtn svg { color: #9ca3af; }
+        html.dark #globalHeader #darkModeToggleBtn:hover svg { color: #f3f4f6; }
+        html.dark #globalHeader button:hover { background-color: #374151; } /* Dark hover for header buttons */
+        html.dark .sidebar { background-color: #1f2937; }
+        html.dark .sidebar:not(.sidebar-mobile-open) { box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3),0 2px 4px -1px rgba(0,0,0,0.2); border-right-color: #374151; }
+        html.dark .sidebar .sidebar-internal-header { border-bottom-color: #374151; }
+        html.dark .sidebar .sidebar-internal-header h3 { color: #f3f4f6; }
+        html.dark .sidebar .text-blue-600 { color: #60a5fa; }
+        html.dark .sidebar .text-blue-600:hover { color: #93c5fd; }
+        html.dark .sidebar svg.accordion-arrow { color: #9ca3af; }
+        html.dark .sidebar .filter-group-bg { background-color: #374151; }
+        html.dark .sidebar .filter-group-bg h4 { color: #f3f4f6; }
+        html.dark .sidebar .filter-group-bg label { color: #d1d5db; }
+        html.dark .sidebar .filter-group-bg .cursor-help { color: #9ca3af; }
+        html.dark .main-content-section { background-color: #1f2937; }
+        html.dark .main-content-section h3 { color: #f3f4f6; }
+        html.dark .main-content-section .text-blue-600 { color: #60a5fa; }
+        html.dark .main-content-section .text-blue-600:hover { color: #93c5fd; }
+        html.dark .metric-box { background-color: #374151; }
+        html.dark .metric-box p.font-bold { color: #f9fafb; }
+        html.dark .metric-box p.text-sm { color: #9ca3af; }
+        html.dark .text-gray-700 { color: #d1d5db; }
+        html.dark .text-gray-800 { color: #f3f4f6; }
+        html.dark .text-gray-900 { color: #f9fafb; }
+        html.dark .text-gray-600 { color: #9ca3af; }
+        html.dark .text-gray-500 { color: #6b7280; }
+        html.dark input, html.dark input::placeholder { background-color: #374151; border-color: #4b5563; color: #f3f4f6; }
+        html.dark input::placeholder { color: #9ca3af; }
+        html.dark input:focus { border-color: #60a5fa; box-shadow: 0 0 0 2px rgba(59,130,246,0.5); }
+        html.dark .stock-card { background-color: #374151; box-shadow: 0 4px 12px rgba(0,0,0,0.4),0 8px 20px rgba(0,0,0,0.3); }
+        html.dark .stock-card:hover { transform: translateY(-5px); box-shadow: 0 8px 20px rgba(0,0,0,0.5),0 12px 30px rgba(0,0,0,0.4); }
+        html.dark .stock-card .text-gray-900 { color: #f9fafb; }
+        html.dark .stock-card .text-gray-600 { color: #9ca3af; }
+        html.dark .stock-card .text-sm.text-gray-500 { color: #6b7280; }
+        html.dark .stock-card .text-gray-500 { color: #9ca3af; }
+        html.dark .stock-card .font-medium.text-gray-800 { color: #f3f4f6; }
+        html.dark .stock-table th { background-color: #374151; color: #f3f4f6; border-bottom-color: #4b5563; }
+        html.dark .stock-table tbody tr { background-color: #1f2937; border-bottom-color: #374151; }
+        html.dark .stock-table tbody tr:hover { background-color: #374151; }
+        html.dark .stock-table tbody td { color: #d1d5db; }
+        html.dark .stock-table tbody td.font-semibold { color: #f9fafb; }
+        html.dark .modal-content-bg { background-color: #1f2937; box-shadow: 0 4px 6px rgba(0,0,0,0.4); }
+        html.dark .modal-content-bg h3, html.dark .modal-content-bg h4 { color: #f3f4f6; }
+        html.dark .modal-content-bg p, html.dark .modal-content-bg label, html.dark .modal-content-bg span.text-sm { color: #d1d5db; }
+        html.dark .modal-content-bg span.font-medium { color: #f3f4f6; }
+        html.dark .modal-content-bg .text-gray-500 { color: #9ca3af; }
+        html.dark .modal-content-bg .bg-gray-100 { background-color: #374151; } /* Used for chart placeholder in dark mode */
+        html.dark .modal-content-bg .text-blue-600 { color: #60a5fa; }
+        html.dark .modal-content-bg .text-blue-600:hover { color: #93c5fd; }
+        html.dark .modal-content-bg .bg-gray-200 { background-color: #4b5563; }
+        html.dark .modal-content-bg .bg-gray-200:hover { background-color: #6b7280; }
+        html.dark .loading-indicator p { color: #9ca3af; }
+        html.dark .mobile-filter-button { background-color: #2563eb; }
+        html.dark .mobile-filter-button:hover { background-color: #1d4ed8; }
+        html.dark .mobile-sidebar-close-btn { color: #9ca3af; }
+        html.dark .mobile-sidebar-close-btn:hover { color: #e2e8f0; }
+
+        #globalHeader { height: 60px; border-bottom: 1px solid #e5e7eb; }
+        #globalHeader svg.logo-icon { width: 2rem; height: 2rem; }
+        #darkModeToggleBtn svg { width: 1.25rem; height: 1.25rem; }
+        .app-layout { display: flex; flex-direction: row; flex-grow: 1; overflow: hidden; height: calc(100vh - 60px - 52px); } /* Adjusted for mobile buttons */
+        @media (min-width: 640px) { .app-layout { height: calc(100vh - 60px); } }
+
+        main.main-content { flex-grow: 1; overflow-y: auto; height: 100%; }
+        aside.sidebar { flex-shrink: 0; display: flex; flex-direction: column; width: 18rem; height: 100%; overflow: hidden; }
+        aside.sidebar .sidebar-internal-header { padding: 1rem 1.5rem; flex-shrink: 0; }
+        aside.sidebar .sidebar-scroll-container { flex-grow: 1; overflow-y: auto; padding: 0 1.5rem 1.5rem 1.5rem; }
+
+        @media (max-width: 639.9px) {
+            aside.sidebar:not(.sidebar-mobile-open) { display: none; }
+            main.main-content { padding: 1rem; }
+            .stocks-header-mobile-layout { flex-direction: column; align-items: flex-start; }
+            .stocks-header-mobile-layout > h3 { margin-bottom: 0.5rem; }
+            .stocks-header-mobile-layout > div { align-self: center; }
+            .stock-table th, .stock-table td { padding: 0.5rem 0.25rem; font-size: 0.75rem; }
+            .stock-table th:first-child, .stock-table td:first-child { padding-left: 0.5rem; }
+            .stock-table th:last-child, .stock-table td:last-child { padding-right: 0.5rem; }
+            .mobile-filter-chip-scroll { display: flex; overflow-x: auto; white-space: nowrap; padding-bottom: 8px; /* For scrollbar */ }
+            .mobile-filter-chip-scroll .filter-btn { flex-shrink: 0; margin-right: 8px; }
+            .mobile-filter-chip-scroll::-webkit-scrollbar { height: 4px; }
+            .mobile-filter-chip-scroll::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2px; }
+            html.dark .mobile-filter-chip-scroll::-webkit-scrollbar-thumb { background: #555; }
+        }
+        @media (min-width: 640px) {
+            aside.sidebar { display: flex !important; } 
+            .mobile-filter-button { display: none; } 
+            .mobile-sidebar-close-btn { display: none; }
+            main.main-content { padding: 2rem; }
+        }
+
+        .sidebar-mobile-open { 
+            display: flex !important; 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: calc(100vh - 60px); 
+            margin-top: 60px; 
+            z-index: 50; 
+            border-radius: 0; 
+            box-shadow: none; 
+        }
+        html.dark .sidebar-mobile-open { background-color: #1f2937;}
+        .sidebar-scroll::-webkit-scrollbar { width: 8px; }
+        .sidebar-scroll::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+        .sidebar-scroll::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
+        .sidebar-scroll::-webkit-scrollbar-thumb:hover { background: #555; }
+        html.dark .sidebar-scroll::-webkit-scrollbar-track { background: #2d3748; }
+        html.dark .sidebar-scroll::-webkit-scrollbar-thumb { background: #6b7280; }
+        html.dark .sidebar-scroll::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+        .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .filter-btn { padding:0.5rem 1rem;border-radius:0.5rem;font-size:0.875rem;font-weight:500;transition:all .2s ease-in-out;border:1px solid;cursor:pointer;text-align:center;line-height:1.25 }
+        .filter-btn { background-color:#fff;color:#374151;border-color:#d1d5db;box-shadow:0 1px 2px 0 rgba(0,0,0,.05) }
+        .filter-btn:hover { background-color:#f9fafb;border-color:#9ca3af;color:#1f2937 }
+        html.dark .filter-btn { background-color:#374151;color:#d1d5db;border-color:#4b5563;box-shadow:0 1px 2px 0 rgba(0,0,0,.15) }
+        html.dark .filter-btn:hover { background-color:#4b5563;border-color:#6b7280;color:#f3f4f6 }
+        .filter-btn.filter-btn-active { color:#fff;box-shadow:0 4px 6px -1px rgba(0,0,0,.1),0 2px 4px -1px rgba(0,0,0,.06) }
+        .filter-btn.filter-btn-active { background-color:#3b82f6;border-color:#2563eb }
+        .filter-btn.filter-btn-active:hover { background-color:#2563eb;border-color:#1d4ed8 }
+        html.dark .filter-btn.filter-btn-active { background-color:#3b82f6;border-color:#2563eb } 
+        html.dark .filter-btn.filter-btn-active:hover { background-color:#2563eb;border-color:#1d4ed8 }
+        .filter-btn:disabled, .filter-btn.opacity-50 { opacity: 0.5; cursor: not-allowed; }
+
+
+        .modal-overlay {display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;overflow:auto;background-color:rgba(0,0,0,.4);align-items:center;justify-content:center}
+        .modal-content-inner {background-color:#fefefe;margin:auto;border-radius:.5rem;box-shadow:0 4px 6px rgba(0,0,0,.1);width:90%;} 
+        .stock-card{background-color:#fff;border-radius:1rem;box-shadow:0 10px 15px -3px rgba(0,0,0,.1),0 4px 6px -2px rgba(0,0,0,.05);padding:1rem;transition:transform .2s ease-in-out,box-shadow .2s ease-in-out;cursor:pointer}
+        .stock-card:hover{transform:translateY(-5px);box-shadow:0 20px 25px -5px rgba(0,0,0,.1),0 10px 10px -5px rgba(0,0,0,.04)}
+        .stock-card .score-badge{width:2rem;height:2rem;font-size:.75rem;font-weight:600} 
+        
+        .stock-table tbody tr{cursor:pointer}
+
+        .mobile-sidebar-close-btn { display: none; } 
+        .sidebar-mobile-open .mobile-sidebar-close-btn { display: block; background:0 0;border:0;font-size:1.5rem;padding:.5rem;color:#4b5563 }
+        .sidebar-mobile-open .mobile-sidebar-close-btn:hover { color:#1f2937 }
+        html.dark .sidebar-mobile-open .mobile-sidebar-close-btn { color: #9ca3af; }
+        html.dark .sidebar-mobile-open .mobile-sidebar-close-btn:hover { color: #e2e8f0; }
+
+        .initial-loading-spinner { display: flex; flex-direction: column; align-items: center; justify-content: center; height: calc(100vh - 120px); }
+        .initial-loading-spinner .spinner { border: 4px solid rgba(0, 0, 0, 0.1); width: 36px; height: 36px; border-radius: 50%; border-left-color: #09f; animation: spin 1s ease infinite; }
+        html.dark .initial-loading-spinner .spinner { border-left-color: #60a5fa; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .initial-loading-spinner p { margin-top: 1rem; font-size: 0.875rem; color: #4b5563; }
+        html.dark .initial-loading-spinner p { color: #9ca3af; }
+
+        .error-banner { background-color: #fee2e2; color: #991b1b; padding: 1rem; margin: 1rem; border-radius: 0.5rem; border: 1px solid #fecaca; }
+        html.dark .error-banner { background-color: #450a0a; color: #fecaca; border-color: #7f1d1d; }
+        .error-retry-button { background-color: #dc2626; color: white; padding: 0.5rem 1rem; border-radius: 0.375rem; margin-top: 0.5rem; font-size: 0.875rem; }
+        .error-retry-button:hover { background-color: #b91c1c; }
+        html.dark .error-retry-button { background-color: #ef4444; }
+        html.dark .error-retry-button:hover { background-color: #dc2626; }
+
+        .ai-thesis-button { padding: 0.375rem 0.75rem; font-size: 0.875rem; font-weight: 500; border-radius: 0.375rem; transition: background-color 0.2s ease-in-out; }
+        .ai-thesis-button { background-color: #4f46e5; color: white; }
+        .ai-thesis-button:hover { background-color: #4338ca; }
+        .ai-thesis-button:disabled { background-color: #a5b4fc; cursor: not-allowed; }
+        html.dark .ai-thesis-button { background-color: #6366f1; }
+        html.dark .ai-thesis-button:hover { background-color: #4f46e5; }
+        html.dark .ai-thesis-button:disabled { background-color: #818cf8; }
+
+        .ai-thesis-content-area { margin-top: 0.5rem; padding: 0.75rem; border-radius: 0.375rem; background-color: #f3f4f6; min-height: 100px; max-height: 250px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word; font-size: 0.875rem; line-height: 1.6; color: #374151; }
+        html.dark .ai-thesis-content-area { background-color: #374151; color: #d1d5db; }
+        .ai-thesis-loading, .ai-thesis-error { margin-top: 0.5rem; padding: 0.75rem; text-align: center; font-size: 0.875rem; }
+        .ai-thesis-loading { color: #4b5563; }
+        html.dark .ai-thesis-loading { color: #9ca3af; }
+        .ai-thesis-error { color: #ef4444; }
+        html.dark .ai-thesis-error { color: #f87171; }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@19.1.0",
+    "react/jsx-runtime": "https://esm.sh/react@19.1.0/jsx-runtime",
+    "react/jsx-dev-runtime": "https://esm.sh/react@19.1.0/jsx-dev-runtime",
+    "react-dom": "https://esm.sh/react-dom@19.1.0",
+    "react-dom/client": "https://esm.sh/react-dom@19.1.0/client",
+    "react-dom/": "https://esm.sh/react-dom@^19.1.0/",
+    "react/": "https://esm.sh/react@^19.1.0/",
+    "chart.js": "https://esm.sh/chart.js@^4.4.9",
+    "@google/genai": "https://esm.sh/@google/genai",
+    "@playwright/test": "https://esm.sh/@playwright/test@^1.53.1",
+    "@jest/globals": "https://esm.sh/@jest/globals@^30.0.2",
+    "@testing-library/react-hooks": "https://esm.sh/@testing-library/react-hooks@^8.0.1",
+    "@testing-library/react": "https://esm.sh/@testing-library/react@^16.3.0",
+    "@testing-library/jest-dom": "https://esm.sh/@testing-library/jest-dom@^6.6.3"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body>
+    <script>
+      window.APP_CONFIG = {
+        FMP_API_KEY: "nVR1WhOPm2A0hL8yjk8sVahVjiw9TB5l" 
+      };
+      console.log('[index.html] window.APP_CONFIG set:', window.APP_CONFIG);
+    </script>
+    <div id="root"></div>
+    
+    <script type="module">
+      try {
+        console.log('[index.html] DIAGNOSTIC: Attempting to import React...');
+        const React = await import('react');
+        if (React && React.version) {
+          console.log('[index.html] DIAGNOSTIC: React imported successfully, version:', React.version);
+        } else {
+          console.error('[index.html] DIAGNOSTIC: React import failed or React object is not as expected.');
+        }
+        const ReactDOMClient = await import('react-dom/client');
+        if (ReactDOMClient && ReactDOMClient.createRoot) {
+            console.log('[index.html] DIAGNOSTIC: ReactDOM/client imported successfully.');
+        } else {
+            console.error('[index.html] DIAGNOSTIC: ReactDOM/client import failed or createRoot is missing.');
+        }
+      } catch (e) {
+        console.error('[index.html] DIAGNOSTIC: Error importing React or ReactDOM/client:', e);
+      }
+    </script>
+
+    <script type="module" src="./index.tsx"></script> 
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>

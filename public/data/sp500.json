@@ -1,0 +1,62 @@
+[
+  {
+    "Symbol": "AAPL",
+    "Name": "Apple Inc."
+  },
+  {
+    "Symbol": "MSFT",
+    "Name": "Microsoft Corporation"
+  },
+  {
+    "Symbol": "AMZN",
+    "Name": "Amazon.com, Inc."
+  },
+  {
+    "Symbol": "NVDA",
+    "Name": "NVIDIA Corporation"
+  },
+  {
+    "Symbol": "GOOGL",
+    "Name": "Alphabet Inc. (Class A)"
+  },
+  {
+    "Symbol": "GOOG",
+    "Name": "Alphabet Inc. (Class C)"
+  },
+  {
+    "Symbol": "META",
+    "Name": "Meta Platforms, Inc."
+  },
+  {
+    "Symbol": "BRK-B",
+    "Name": "Berkshire Hathaway Inc."
+  },
+  {
+    "Symbol": "LLY",
+    "Name": "Eli Lilly and Company"
+  },
+  {
+    "Symbol": "JPM",
+    "Name": "JPMorgan Chase & Co."
+  },
+  {
+    "Symbol": "XOM",
+    "Name": "Exxon Mobil Corporation"
+  },
+  {
+    "Symbol": "V",
+    "Name": "Visa Inc."
+  },
+  {
+    "Symbol": "JNJ",
+    "Name": "Johnson & Johnson"
+  },
+  {
+    "Symbol": "AVGO",
+    "Name": "Broadcom Inc."
+  },
+  {
+    "Symbol": "PG",
+    "Name": "The Procter & Gamble Company"
+  }
+]

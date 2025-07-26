@@ -1,0 +1,6 @@
+{
+  "name": "Copy of Stock Screener V3",
+  "description": "A dynamic stock screening application with customizable filters, multiple views, and detailed stock information. Allows users to sift through a large dataset of stocks based on various financial metrics and qualitative factors.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}
